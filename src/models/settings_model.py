@@ -24,16 +24,20 @@ class SettingsModel:
     def _get_settings_file_path(self) -> str:
         """
         プラットフォームに応じて適切な設定ファイルのパスを生成します。
-        元のコードの get_app_data_path に相当します。
         """
-        # TODO: AppData や .config フォルダ内に専用ディレクトリを作成し、
-        #       その中に 'app_settings.json' のパスを返す処理を実装します。
+        # アプリケーション名を定義
+        app_name = "SurgicalVideoAnalysisTool_2"
+
         if sys.platform == "win32":
-            app_data_dir = os.path.join(os.environ['APPDATA'], 'SurgicalVideoAnalysisTool_2')
+            # Windowsの場合: %APPDATA%\AppName
+            app_data_dir = os.path.join(os.environ['APPDATA'], app_name)
         else:
-            app_data_dir = os.path.join(os.path.expanduser('~'), '.config', 'SurgicalVideoAnalysisTool_2')
+            # macOS/Linuxの場合: ~/.config/AppName
+            app_data_dir = os.path.join(os.path.expanduser('~'), '.config', app_name)
         
+        # ディレクトリが存在しない場合は作成
         os.makedirs(app_data_dir, exist_ok=True)
+        
         return os.path.join(app_data_dir, 'app_settings.json')
 
     def load(self) -> dict:
@@ -41,17 +45,28 @@ class SettingsModel:
         設定ファイルから設定を読み込みます。
         ファイルが存在しない、または内容が不正な場合はデフォルト設定を返します。
         """
-        # TODO: JSONファイルからの読み込みと、デフォルト値での補完処理を実装します。
-        print("Loading settings...") # 動作確認用
-        return self.DEFAULT_SETTINGS.copy()
+        try:
+            with open(self.settings_file_path, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+            
+            # デフォルト設定にないキーがあれば追加する
+            for key, value in self.DEFAULT_SETTINGS.items():
+                settings.setdefault(key, value)
+            return settings
+            
+        except (FileNotFoundError, json.JSONDecodeError):
+            # ファイルがないか、JSONとして不正な場合はデフォルトを返す
+            return self.DEFAULT_SETTINGS.copy()
 
     def save(self):
         """
         現在の設定をファイルに保存します。
         """
-        # TODO: JSONファイルへの書き込み処理を実装します。
-        print(f"Saving settings to {self.settings_file_path}") # 動作確認用
-        pass
+        try:
+            with open(self.settings_file_path, 'w', encoding='utf-8') as f:
+                json.dump(self.settings, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error saving settings: {e}")
 
     def get(self, key: str, default=None):
         """

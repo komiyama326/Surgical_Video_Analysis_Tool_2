@@ -19,7 +19,7 @@ class MainViewModel:
         self.analysis_model = analysis_model
         self.video_model = video_model
         
-        # Viewへの参照を保持するための変数 (後で設定される)
+        # Viewへの参照を保持するための変数 (Applicationクラスによって設定される)
         self.view = None
         
         print("MainViewModel initialized.")
@@ -27,22 +27,37 @@ class MainViewModel:
     def set_view(self, view):
         """
         Viewへの参照を設定します。
+        これによりViewModelからViewのメソッドを呼び出せるようになります。
         """
         self.view = view
 
-    # --- Viewからのイベントハンドラ ---
-    # TODO: ここに、UI上のボタンが押されたときなどに呼び出されるメソッドを
-    #       多数実装していきます。
-    # 例: def on_play_pause_clicked(self): ...
-    # 例: def on_start_button_clicked(self): ...
-
-    # --- アプリケーションのライフサイクル ---
     def on_window_closing(self):
         """
         アプリケーション終了時の処理を行います。
         """
-        # TODO: 設定の保存、VLCリソースの解放などを行います。
-        print("Window is closing. Cleaning up...")
-        self.video_model.release_player()
+        print("Window is closing. Starting cleanup...")
+        
+        # 現在のウィンドウサイズを取得してSettingsModelに保存
+        if self.view:
+            current_geometry = self.view.geometry()
+            self.settings_model.set("window_geometry", current_geometry)
+        
+        # 各Modelにデータの保存とリソースの解放を指示
         self.settings_model.save()
         self.preset_model.save()
+        self.video_model.release_player()
+        
+        print("Cleanup finished. Exiting.")
+        
+        # ウィンドウを破棄してアプリケーションを終了
+        if self.view:
+            self.view.destroy()
+
+    # --- アプリケーション起動時の処理 ---
+    def initialize_app(self):
+        """
+        アプリケーション起動時に必要な初期化処理を行います。
+        """
+        # 現時点では特に処理はないが、今後ここに初期化コードを追加する
+        print("Application initialized by ViewModel.")
+        pass

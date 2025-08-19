@@ -1,6 +1,6 @@
 import json
 import os
-import sys
+from .settings_model import SettingsModel
 
 class PresetModel:
     """
@@ -13,18 +13,17 @@ class PresetModel:
         "水晶体超音波乳化吸引術 (PEA)", "皮質吸引 (I/A)", "眼内レンズ挿入 (IOL挿入)"
     ]
 
-    def __init__(self, settings_model):
+    def __init__(self, settings_model: SettingsModel):
         """
         PresetModelの初期化。
         
         Args:
             settings_model: 設定ファイルのパス情報を取得するために使用。
         """
-        # AppData/ConfigフォルダのパスはSettingsModelが知っているので、それを利用します。
         self.presets_file_path = self._get_presets_file_path(settings_model)
         self.presets_data = self.load()
 
-    def _get_presets_file_path(self, settings_model) -> str:
+    def _get_presets_file_path(self, settings_model: SettingsModel) -> str:
         """
         設定ファイルと同じディレクトリにプリセットファイルを配置します。
         """
@@ -36,22 +35,50 @@ class PresetModel:
         プリセットファイルからプリセットを読み込みます。
         ファイルが存在しない、または内容が不正な場合はデフォルトプリセットを返します。
         """
-        # TODO: JSONファイルからの読み込みと、データ形式の検証、
-        #       デフォルトデータでの初期化処理を実装します。
-        print("Loading presets...") # 動作確認用
         default_data = {
             "presets": {self.DEFAULT_PRESET_NAME: self.DEFAULT_STAMPS},
             "last_used": self.DEFAULT_PRESET_NAME
         }
-        return default_data
+
+        try:
+            # プリセットファイルが存在しない場合は、まずデフォルトで作成する
+            if not os.path.exists(self.presets_file_path):
+                self._create_default_preset_file(default_data)
+                return default_data
+
+            with open(self.presets_file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            # データ構造が期待通りか基本的なチェックを行う
+            if "presets" not in data or "last_used" not in data:
+                raise ValueError("Invalid presets file format")
+            
+            return data
+
+        except (FileNotFoundError, json.JSONDecodeError, ValueError):
+            # ファイルがない、壊れている、形式が違う場合はデフォルトで再作成
+            self._create_default_preset_file(default_data)
+            return default_data
+
+    def _create_default_preset_file(self, data: dict):
+        """
+        デフォルトのプリセットデータでファイルを作成します。
+        """
+        try:
+            with open(self.presets_file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error creating default preset file: {e}")
 
     def save(self):
         """
         現在のプリセットデータをファイルに保存します。
         """
-        # TODO: JSONファイルへの書き込み処理を実装します。
-        print(f"Saving presets to {self.presets_file_path}") # 動作確認用
-        pass
+        try:
+            with open(self.presets_file_path, 'w', encoding='utf-8') as f:
+                json.dump(self.presets_data, f, indent=4, ensure_ascii=False)
+        except IOError as e:
+            print(f"Error saving presets: {e}")
 
     def get_preset_names(self) -> list:
         """
