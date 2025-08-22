@@ -63,19 +63,52 @@ class MainWindow(tk.Tk):
         style.configure("Black.TFrame", background="black")
         self.video_frame = ttk.Frame(video_panel, style="Black.TFrame")
         self.video_frame.pack(fill=tk.BOTH, expand=True)
-        
+
+        # --- タイムライン（再生スライダー） ---
+        self.timeline_var = tk.DoubleVar()
+        self.timeline = ttk.Scale(
+            video_panel,
+            from_=0,
+            to=1000,
+            orient=tk.HORIZONTAL,
+            variable=self.timeline_var,
+            # command=self.viewmodel.on_timeline_seek # シーク処理は後で実装
+        )
+        self.timeline.pack(fill=tk.X, pady=5)
+
+        # --- 時間表示ラベル ---
+        self.time_display_var = tk.StringVar(value="--:--:-- / --:--:--")
+        time_display_label = ttk.Label(
+            video_panel,
+            textvariable=self.time_display_var,
+            anchor=tk.CENTER
+        )
+        time_display_label.pack(fill=tk.X)
+
         # --- コントロールパネルのウィジェット ---
         # 上部にファイル操作用のフレームを配置
         file_frame = ttk.Frame(control_panel)
         file_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 10))
 
-        # "Open Video"ボタンを作成し、クリック時の動作をViewModelのメソッドに紐付け
         self.open_video_button = ttk.Button(
             file_frame,
             text="Open Video File(s)",
             command=self.viewmodel.on_open_video_clicked
         )
         self.open_video_button.pack(expand=True, fill=tk.X)
+
+        # 再生コントロール用のフレーム
+        playback_frame = ttk.Frame(control_panel)
+        playback_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
+
+        self.play_pause_button = ttk.Button(
+            playback_frame,
+            text="Play",
+            command=self.viewmodel.on_play_pause_clicked
+        )
+        self.play_pause_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        # TODO: ここに早送り・巻き戻し、速度変更ボタンを追加していく
 
 
     def get_video_frame_handle(self) -> int:

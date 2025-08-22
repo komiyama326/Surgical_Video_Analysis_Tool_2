@@ -1,4 +1,5 @@
 from tkinter import filedialog
+from ..utils.helpers import format_time
 
 class MainViewModel:
     """
@@ -25,6 +26,9 @@ class MainViewModel:
         self.view = None
         
         print("MainViewModel initialized.")
+
+        # UIの定期更新を行うタイマーID
+        self._update_timer = None
 
     def set_view(self, view):
         """
@@ -92,3 +96,56 @@ class MainViewModel:
             self.video_model.set_display_handle(handle)
 
         print(f"Video files selected: {file_paths}")
+
+        self.update_ui_regularly() # UIの初期状態を更新
+
+    def on_play_pause_clicked(self):
+        """
+        「再生/一時停止」ボタンがクリックされたときの処理。
+        """
+        self.video_model.play_pause()
+        self.update_ui_regularly() # UI更新タイマーを開始/停止
+
+    def update_ui_regularly(self):
+        """
+        UI要素（タイムライン、時間表示など）を定期的に更新します。
+        """
+        # 既存のタイマーがあればキャンセル
+        if self._update_timer:
+            self.view.after_cancel(self._update_timer)
+            self._update_timer = None
+
+        # 動画が再生中の場合のみ、新しいタイマーを開始する
+        if self.video_model.is_playing():
+            self._update_ui() # 最初の更新を即時実行
+        else:
+            # 停止した場合は、ボタンのテキストなどを最終状態に更新
+            self._update_ui()
+            
+    def _update_ui(self):
+        """
+        UIを一度更新するための内部メソッド。
+        """
+        if not self.view or not self.video_model.media_loaded:
+            return
+
+        # ボタンのテキストを更新
+        play_pause_text = "Pause" if self.video_model.is_playing() else "Play"
+        self.view.play_pause_button.config(text=play_pause_text)
+
+        # 時間表示を更新
+        current_time_sec = self.video_model.get_time() / 1000.0
+        total_time_sec = self.video_model.get_length() / 1000.0
+        
+        # format_timeヘルパー関数を使用
+        time_str = f"{format_time(current_time_sec)} / {format_time(total_time_sec)}"
+        self.view.time_display_var.set(time_str)
+
+        # タイムラインスライダーを更新 (0除算を回避)
+        if total_time_sec > 0:
+            position = (current_time_sec / total_time_sec) * 1000
+            self.view.timeline_var.set(position)
+
+        # 次の更新をスケジュール (再生中のみ)
+        if self.video_model.is_playing():
+            self._update_timer = self.view.after(100, self._update_ui)
