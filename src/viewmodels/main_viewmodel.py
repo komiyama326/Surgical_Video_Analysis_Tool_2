@@ -1,5 +1,6 @@
 from tkinter import filedialog
 from ..utils.helpers import format_time
+import tkinter as tk
 
 class MainViewModel:
     """
@@ -29,6 +30,16 @@ class MainViewModel:
 
         # UIの定期更新を行うタイマーID
         self._update_timer = None
+
+        # 現在のプリセット情報を保持する
+        self.current_preset_name = None
+        self.current_stamps = []
+
+        # 現在選択中の手順名を保持する
+        self.selected_stamp = None
+
+        # 現在記録中かどうかを示すフラグ
+        self.is_recording = False
 
     def set_view(self, view):
         """
@@ -64,9 +75,19 @@ class MainViewModel:
         """
         アプリケーション起動時に必要な初期化処理を行います。
         """
-        # 現時点では特に処理はないが、今後ここに初期化コードを追加する
-        print("Application initialized by ViewModel.")
-        pass
+        # Modelから最後に使用したプリセット名を取得
+        last_used_preset = self.preset_model.presets_data.get("last_used")
+        
+        if last_used_preset:
+            self.current_preset_name = last_used_preset
+            # Modelからプリセットの手順リストを取得
+            self.current_stamps = self.preset_model.get_stamps(last_used_preset)
+            
+        # Viewに手順リストの表示更新を指示
+        if self.view:
+            self.view.update_stamp_list(self.current_stamps)
+
+        print(f"Loaded preset '{self.current_preset_name}' with {len(self.current_stamps)} stamps.")
 
     # --- Viewからのイベントハンドラ ---
 
@@ -105,6 +126,111 @@ class MainViewModel:
         """
         self.video_model.play_pause()
         self.update_ui_regularly() # UI更新タイマーを開始/停止
+
+    def on_stamp_select(self, event=None):
+        """
+        手順リストの項目が選択されたときに呼び出されます。
+        """
+        if not self.view:
+            return
+
+        # Viewから選択された項目名を取得
+        selected_name = self.view.get_selected_stamp_name()
+        self.selected_stamp = selected_name
+        
+        if selected_name:
+            # Viewのラベルを更新
+            self.view.set_selected_stamp_text(selected_name)
+            # 記録中でない場合のみStartボタンを有効化
+            if not self.is_recording:
+                self.view.start_button.config(state=tk.NORMAL)
+        else:
+            # 何も選択されていない状態に戻す
+            self.view.set_selected_stamp_text("---")
+            self.view.start_button.config(state=tk.DISABLED)
+
+        print(f"Stamp selected: {selected_name}")
+
+    def on_start_clicked(self):
+        """
+        「Start」ボタンがクリックされたときの処理。
+        """
+        if not self.selected_stamp or self.is_recording:
+            return
+            
+        self.is_recording = True
+        
+        # 現在の再生時間を取得して、AnalysisDataModelに記録開始を指示
+        start_time = self.video_model.get_time() / 1000.0
+        self.analysis_model.start_procedure(self.selected_stamp, start_time)
+        
+        # --- UIの状態を更新 ---
+        # Startボタンを無効化し、Endボタンを有効化
+        self.view.start_button.config(state=tk.DISABLED)
+        self.view.end_button.config(state=tk.NORMAL)
+        
+        # 記録中はリストの選択を変更できないようにする
+        self.view.stamp_tree.config(selectmode="none")
+
+        print(f"Recording started for: {self.selected_stamp}")
+
+    def on_end_clicked(self):
+        """
+        「End」ボタンがクリックされたときの処理。
+        """
+        if not self.is_recording:
+            return
+
+        # 現在の再生時間を取得して、AnalysisDataModelに記録終了を指示
+        end_time = self.video_model.get_time() / 1000.0
+        # TODO: メモ機能は後で実装
+        self.analysis_model.end_procedure(end_time, memo="")
+        
+        self.is_recording = False
+        
+        # --- UIの状態を更新 ---
+        # Endボタンを無効化
+        self.view.end_button.config(state=tk.DISABLED)
+        
+        # リストの選択を再び可能にする
+        self.view.stamp_tree.config(selectmode="browse")
+        
+        # 選択状態を再評価して、Startボタンの状態を決定
+        self.on_stamp_select()
+
+        self._update_summary()
+        self._update_undo_button_state()
+
+        print("Recording ended.")
+
+    def on_undo_clicked(self):
+        """
+        「Undo」ボタンがクリックされたときの処理。
+        """
+        # Modelに最後の記録の削除を依頼
+        undone_record = self.analysis_model.undo_last_record()
+        
+        if undone_record:
+            print(f"Undone: {undone_record.get('手順名')}")
+            # サマリー表示を更新
+            self._update_summary()
+        
+        # Undoボタンの状態を更新
+        self._update_undo_button_state()
+
+    def _update_summary(self):
+        """
+        ライブサマリー表示を更新します。
+        """
+        if not self.view:
+            return
+            
+        # Modelからサマリー情報を取得
+        count, total_duration = self.analysis_model.get_summary()
+        
+        # Viewのラベルを更新
+        self.view.summary_count_var.set(f"Logged Procedures: {count}")
+        self.view.summary_duration_var.set(f"Total Duration: {total_duration:.2f}s")
 
     def update_ui_regularly(self):
         """
@@ -149,3 +275,16 @@ class MainViewModel:
         # 次の更新をスケジュール (再生中のみ)
         if self.video_model.is_playing():
             self._update_timer = self.view.after(100, self._update_ui)
+
+    def _update_undo_button_state(self):
+        """
+        Undoボタンの状態を、記録データがあるかどうかに基づいて更新します。
+        """
+        if not self.view:
+            return
+            
+        # Modelにデータがあるか問い合わせる
+        if self.analysis_model.has_data():
+            self.view.undo_button.config(state=tk.NORMAL)
+        else:
+            self.view.undo_button.config(state=tk.DISABLED)
