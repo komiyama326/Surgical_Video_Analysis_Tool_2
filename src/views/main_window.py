@@ -64,9 +64,18 @@ class MainWindow(tk.Tk):
         self.video_frame = ttk.Frame(video_panel, style="Black.TFrame")
         self.video_frame.pack(fill=tk.BOTH, expand=True)
         
-        # --- コントロールパネルのウィジェット（仮） ---
-        label = ttk.Label(control_panel, text="Control Panel Skeleton")
-        label.pack(pady=20, padx=20)
+        # --- コントロールパネルのウィジェット ---
+        # 上部にファイル操作用のフレームを配置
+        file_frame = ttk.Frame(control_panel)
+        file_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 10))
+
+        # "Open Video"ボタンを作成し、クリック時の動作をViewModelのメソッドに紐付け
+        self.open_video_button = ttk.Button(
+            file_frame,
+            text="Open Video File(s)",
+            command=self.viewmodel.on_open_video_clicked
+        )
+        self.open_video_button.pack(expand=True, fill=tk.X)
 
 
     def get_video_frame_handle(self) -> int:

@@ -1,4 +1,5 @@
 import vlc
+import time
 
 class VideoPlayerModel:
     """
@@ -26,25 +27,45 @@ class VideoPlayerModel:
             self.media_loaded = False
             return
             
-        # TODO: 複数の動画ファイルを連続再生するための MediaList と MediaListPlayer を
-        #       ここで作成・設定するロジックを実装します。
-        #       単一ファイルの場合は、元のコードと同様に Media を作成します。
-        
-        # とりあえず単一ファイルの場合の雛形
+        # TODO: 現時点では最初のファイルのみを再生する。
+        #       複数ファイル対応は後のフェーズで実装する。
         media = self.vlc_instance.media_new(file_paths[0])
         self.player.set_media(media)
+        
+        # ★★★【修正箇所】★★★
+        # MediaPlayerオブジェクトではなく、Mediaオブジェクトに対してparseを呼び出す
+        media.parse()
+        
         self.media_loaded = True
-        print(f"Media loaded: {file_paths}") # 動作確認用
+        
+        # メディアの長さが取得できるまで少し待つ
+        # これにより、UIのタイムラインなどを正しく初期化できる
+        time.sleep(0.2) 
+
+        print(f"Media loaded: {file_paths[0]}, Duration: {self.get_length()} ms")
 
     def set_display_handle(self, handle: int):
         """
         動画を表示するUIコンポーネントのハンドルを設定します。
+        設定後、一度再生・停止することで最初のフレームを描画させます。
         
         Args:
             handle: ウィンドウハンドル (Tkinterのwinfo_id()で取得)。
         """
-        if handle:
-            self.player.set_hwnd(handle)
+        if not handle or not self.media_loaded:
+            return
+
+        self.player.set_hwnd(handle)
+
+        # ★★★【今回の修正の核心部分】★★★
+        # 最初のフレームを描画させるための「キックスタート」処理。
+        # 再生状態でない場合、一度だけ再生→即時停止を行う。
+        # これにより、UIに静止した最初のフレームが表示される。
+        if self.player.is_playing() == 0:
+            self.player.play()
+            # play()の反映には少し時間がかかる場合があるため、ごく短い待機を入れる
+            time.sleep(0.1) 
+            self.player.pause()
 
     def play_pause(self):
         """
@@ -93,6 +114,8 @@ class VideoPlayerModel:
         プレイヤーリソースを解放します。
         """
         if self.player:
-            self.player.stop()
+            if self.player.is_playing():
+                self.player.stop()
             self.player.release()
             self.player = None
+            print("VLC Player released.")

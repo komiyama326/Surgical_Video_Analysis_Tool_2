@@ -1,3 +1,5 @@
+from tkinter import filedialog
+
 class MainViewModel:
     """
     メインウィンドウのViewModel。
@@ -61,3 +63,32 @@ class MainViewModel:
         # 現時点では特に処理はないが、今後ここに初期化コードを追加する
         print("Application initialized by ViewModel.")
         pass
+
+    # --- Viewからのイベントハンドラ ---
+
+    def on_open_video_clicked(self):
+        """
+        「動画を開く」ボタンがクリックされたときの処理。
+        ファイル選択ダイアログを表示し、選択されたファイルをVideoPlayerModelに渡す。
+        """
+        # ファイル選択ダイアログを開く
+        # askopenfilenames を使うことで、複数のファイルを同時に選択できる
+        file_paths = filedialog.askopenfilenames(
+            title="Select Video File(s)",
+            filetypes=(("Movie Files", "*.mp4 *.mov *.avi"), ("All files", "*.*"))
+        )
+        
+        # ファイルが選択されなかった場合は何もしない
+        if not file_paths:
+            return
+            
+        # VideoPlayerModelにファイルのパスリストを渡す
+        self.video_model.set_video_files(list(file_paths))
+        
+        # 動画の描画先をVideoPlayerModelに伝える
+        # この処理は動画ファイルがセットされた後に行う必要がある
+        if self.view:
+            handle = self.view.get_video_frame_handle()
+            self.video_model.set_display_handle(handle)
+
+        print(f"Video files selected: {file_paths}")
