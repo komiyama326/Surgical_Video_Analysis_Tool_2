@@ -92,4 +92,34 @@ class PresetModel:
         """
         return self.presets_data.get("presets", {}).get(preset_name, [])
 
+    def add_stamp(self, preset_name: str, new_stamp: str) -> bool:
+        """
+        指定されたプリセットに新しいスタンプを追加します。
+        成功した場合は True を、スタンプが既に存在する場合は False を返します。
+        """
+        if preset_name not in self.presets_data["presets"]:
+            return False
+        
+        stamps = self.presets_data["presets"][preset_name]
+        if new_stamp in stamps:
+            return False # 既に存在するので追加しない
+            
+        stamps.append(new_stamp)
+        return True
+    
+    def delete_stamp(self, preset_name: str, stamp_to_delete: str) -> bool:
+        """
+        指定されたプリセットからスタンプを削除します。
+        成功した場合は True を、スタンプが存在しない場合は False を返します。
+        """
+        if preset_name not in self.presets_data["presets"]:
+            return False
+            
+        stamps = self.presets_data["presets"][preset_name]
+        if stamp_to_delete not in stamps:
+            return False # 存在しないので削除できない
+        
+        stamps.remove(stamp_to_delete)
+        return True
+
     # TODO: 今後、プリセットの追加、名前変更、削除などのメソッドをここに追加していきます。

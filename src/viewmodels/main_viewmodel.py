@@ -1,6 +1,7 @@
 from tkinter import filedialog
 from ..utils.helpers import format_time
 import tkinter as tk
+from tkinter import simpledialog, messagebox
 
 class MainViewModel:
     """
@@ -88,6 +89,11 @@ class MainViewModel:
             self.view.update_stamp_list(self.current_stamps)
 
         print(f"Loaded preset '{self.current_preset_name}' with {len(self.current_stamps)} stamps.")
+
+        # プリセット選択コンボボックスも更新する
+        if self.view:
+            preset_names = self.preset_model.get_preset_names()
+            self.view.update_preset_combo(preset_names, self.current_preset_name)
 
     # --- Viewからのイベントハンドラ ---
 
@@ -203,6 +209,42 @@ class MainViewModel:
 
         print("Recording ended.")
 
+    def on_add_stamp_clicked(self):
+        """
+        「Add Stamp」ボタンがクリックされたときの処理。
+        """
+        if not self.view:
+            return
+
+        # ショートカットを一時的に無効化
+        self.view.unbind_shortcuts()
+        
+        # 入力ダイアログを表示して、新しいスタンプ名を取得
+        new_stamp_name = simpledialog.askstring(
+            "Add Stamp", "Enter new stamp name:", parent=self.view
+        )
+        
+        # ショートカットを再有効化
+        self.view.bind_shortcuts()
+
+        if new_stamp_name:
+            # Modelにスタンプの追加を依頼
+            success = self.preset_model.add_stamp(self.current_preset_name, new_stamp_name)
+            
+            if success:
+                # Modelの内部データが変更されたので、ViewModelのデータも更新
+                self.current_stamps = self.preset_model.get_stamps(self.current_preset_name)
+                # Viewのリスト表示を更新
+                self.view.update_stamp_list(self.current_stamps)
+                print(f"Stamp '{new_stamp_name}' added to preset '{self.current_preset_name}'.")
+                # TODO: プリセットが変更されたことを示すマーカー(*)をUIに表示
+            else:
+                messagebox.showwarning(
+                    "Add Stamp Failed",
+                    f"The stamp '{new_stamp_name}' already exists in this preset.",
+                    parent=self.view
+                )
+
     def on_undo_clicked(self):
         """
         「Undo」ボタンがクリックされたときの処理。
@@ -288,3 +330,41 @@ class MainViewModel:
             self.view.undo_button.config(state=tk.NORMAL)
         else:
             self.view.undo_button.config(state=tk.DISABLED)
+
+    def on_delete_stamp_clicked(self):
+        """
+        「Delete Stamp」ボタンがクリックされたときの処理。
+        """
+        if not self.view or not self.selected_stamp:
+            messagebox.showinfo(
+                "Delete Stamp",
+                "Please select a stamp from the list to delete.",
+                parent=self.view
+            )
+            return
+
+        # 確認ダイアログを表示
+        confirm = messagebox.askyesno(
+            "Confirm Deletion",
+            f"Are you sure you want to delete the stamp '{self.selected_stamp}'?",
+            parent=self.view
+        )
+
+        if confirm:
+            # Modelにスタンプの削除を依頼
+            success = self.preset_model.delete_stamp(self.current_preset_name, self.selected_stamp)
+            
+            if success:
+                # Modelの内部データが変更されたので、ViewModelのデータも更新
+                self.current_stamps = self.preset_model.get_stamps(self.current_preset_name)
+                # Viewのリスト表示を更新
+                self.view.update_stamp_list(self.current_stamps)
+                print(f"Stamp '{self.selected_stamp}' deleted from preset '{self.current_preset_name}'.")
+                # TODO: プリセットが変更されたことを示すマーカー(*)をUIに表示
+            else:
+                # 基本的にこのエラーは発生しないはずだが、念のため
+                messagebox.showerror(
+                    "Delete Stamp Failed",
+                    f"Could not find the stamp '{self.selected_stamp}' to delete.",
+                    parent=self.view
+                )

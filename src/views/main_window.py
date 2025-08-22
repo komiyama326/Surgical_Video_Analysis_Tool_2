@@ -111,6 +111,36 @@ class MainWindow(tk.Tk):
         )
         self.play_pause_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
+        # プリセット管理用のフレーム
+        preset_frame = ttk.LabelFrame(control_panel, text="Preset Manager", padding=5)
+        preset_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
+
+        # 現在のプリセット名を表示・選択するためのコンボボックス
+        self.preset_combo_var = tk.StringVar()
+        self.preset_combo = ttk.Combobox(
+            preset_frame,
+            textvariable=self.preset_combo_var,
+            state="readonly"
+        )
+        # self.preset_combo.bind("<<ComboboxSelected>>", self.viewmodel.on_preset_selected) # 後で実装
+        self.preset_combo.pack(fill=tk.X, pady=(0, 5))
+
+        # プリセット管理ボタン用のフレーム
+        preset_btn_frame = ttk.Frame(preset_frame)
+        preset_btn_frame.pack(fill=tk.X)
+
+        add_stamp_btn = ttk.Button(
+            preset_btn_frame, text="Add Stamp",
+            command=self.viewmodel.on_add_stamp_clicked
+        )
+        add_stamp_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        delete_stamp_btn = ttk.Button(
+            preset_btn_frame, text="Delete Stamp",
+            command=self.viewmodel.on_delete_stamp_clicked
+        )
+        delete_stamp_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
         # 手順スタンプリスト用のフレーム
         stamp_frame = ttk.LabelFrame(control_panel, text="Procedure Stamps", padding=5)
         stamp_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
@@ -209,6 +239,13 @@ class MainWindow(tk.Tk):
         self.unbind_all("<e>")
         self.unbind_all("<u>")
         print("Shortcuts disabled.")
+
+    def update_preset_combo(self, preset_names: list[str], current_preset: str):
+        """
+        プリセット選択コンボボックスの内容を更新します。
+        """
+        self.preset_combo['values'] = preset_names
+        self.preset_combo_var.set(current_preset)
 
     def start_main_loop(self):
         """
