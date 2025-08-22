@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+from ..utils import helpers
 from tkinter import filedialog
 from ..utils.helpers import format_time
 import tkinter as tk
@@ -368,3 +371,62 @@ class MainViewModel:
                     f"Could not find the stamp '{self.selected_stamp}' to delete.",
                     parent=self.view
                 )
+
+    def on_finish_and_save_clicked(self):
+        """
+        「Finish & Save」ボタンがクリックされたときの処理。
+        分析結果をファイルに保存する。
+        """
+        if not self.analysis_model.has_data():
+            messagebox.showinfo(
+                "No Data", "No data has been recorded to save.", parent=self.view
+            )
+            return
+
+        # 1. 保存先ディレクトリを決定 (SettingsModelが知っているパスを利用)
+        output_dir = os.path.join(
+            os.path.dirname(self.settings_model.settings_file_path),
+            'AnalysisResults'
+        )
+        os.makedirs(output_dir, exist_ok=True)
+
+        # 2. ファイル名を決定 (元のコードのロジックを踏襲)
+        #    TODO: 複数動画対応時にファイル名をどうするか検討が必要
+        date_prefix = datetime.now().strftime('%Y%m%d%H%M')
+        sequence_number = 1
+        while True:
+            # TODO: ここで使用するビデオファイル名は、動画選択時に保持しておく必要がある
+            video_basename = "analysis_result" 
+            output_filename = f"{video_basename}_{date_prefix}_{sequence_number:02d}.csv"
+            output_csv_path = os.path.join(output_dir, output_filename)
+            if not os.path.exists(output_csv_path):
+                break
+            sequence_number += 1
+
+        # 3. DataFrameを取得し、CSVとして保存
+        df = self.analysis_model.export_to_dataframe()
+        
+        # 移行時間を計算
+        df['移行時間(秒)'] = df['開始時間(秒)'] - df['終了時間(秒)'].shift(1)
+        # 列の順番を整理
+        df = df[["手順名", "開始時間(秒)", "終了時間(秒)", "所要時間(秒)", "移行時間(秒)", "メモ"]]
+
+        try:
+            df.to_csv(output_csv_path, index=False, encoding='utf-8-sig', float_format='%.2f')
+            print(f"CSV saved to {output_csv_path}")
+
+            # 4. グラフを生成して保存
+            # TODO: グラフ生成の有効/無効を設定で切り替えられるようにする
+            font_prop = helpers.get_japanese_font()
+            graph_path = helpers.create_and_save_graph(df, output_csv_path, font_prop)
+
+            # 5. 結果表示ダイアログ (今回はメッセージボックスで代用)
+            messagebox.showinfo(
+                "Save Successful",
+                f"Results saved successfully!\n\nCSV: {output_csv_path}"
+                + (f"\nGraph: {graph_path}" if graph_path else "")
+            )
+
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save results.\nError: {e}")
+            print(f"Error during save: {e}")

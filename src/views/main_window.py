@@ -212,6 +212,17 @@ class MainWindow(tk.Tk):
         )
         self.undo_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
+        # 終了・保存ボタン用のフレーム
+        finish_frame = ttk.Frame(control_panel)
+        finish_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+
+        finish_button = ttk.Button(
+            finish_frame,
+            text="Finish & Save Results",
+            command=self.viewmodel.on_finish_and_save_clicked
+        )
+        finish_button.pack(expand=True, fill=tk.X)
+
     def get_video_frame_handle(self) -> int:
         """
         動画表示用フレームのウィンドウハンドルを返します。
