@@ -1,20 +1,33 @@
 import vlc
 import time
+import os
 
 class VideoPlayerModel:
     """
     VLCプレイヤーを管理し、動画再生のロジックを担当するクラス。
+    複数動画の連続再生に対応。
     """
     
     def __init__(self):
         """
         VideoPlayerModelの初期化。
-        VLCインスタンスとプレイヤーを作成します。
+        VLCインスタンスとMediaListPlayerを作成します。
         """
         self.vlc_instance = vlc.Instance()
-        self.player = self.vlc_instance.media_player_new()
+        
+        # MediaListPlayerを作成
+        self.list_player = self.vlc_instance.media_list_player_new()
+        
+        # MediaListPlayerから内部のMediaPlayerインスタンスを取得
+        self.player = self.list_player.get_media_player()
         
         self.media_loaded = False
+        self.video_files = []
+
+        # 各動画の長さ(ms)と、その動画までの合計時間(ms)をキャッシュする
+        self._media_durations = []
+        self._cumulative_durations = []
+        self._total_duration = 0
 
     def set_video_files(self, file_paths: list[str]):
         """
@@ -26,96 +39,154 @@ class VideoPlayerModel:
         if not file_paths:
             self.media_loaded = False
             return
+        
+        self.video_files = file_paths
+        
+        # キャッシュをリセット
+        self._media_durations = []
+        self._cumulative_durations = [0]
+        self._total_duration = 0
+
+        media_list = self.vlc_instance.media_list_new()
+        
+        for path in file_paths:
+            media = self.vlc_instance.media_new(path)
+            media_list.add_media(media)
             
-        # TODO: 現時点では最初のファイルのみを再生する。
-        #       複数ファイル対応は後のフェーズで実装する。
-        media = self.vlc_instance.media_new(file_paths[0])
-        self.player.set_media(media)
-        
-        # ★★★【修正箇所】★★★
-        # MediaPlayerオブジェクトではなく、Mediaオブジェクトに対してparseを呼び出す
-        media.parse()
-        
+            # 各動画の長さを取得してキャッシュする
+            # この処理は時間がかかる可能性があるため、本来は非同期処理が望ましい
+            media.parse()
+            time.sleep(0.05) # パースを待つ
+            duration = media.get_duration()
+            if duration > 0:
+                self._media_durations.append(duration)
+                self._total_duration += duration
+                self._cumulative_durations.append(self._total_duration)
+
+        self.list_player.set_media_list(media_list)
         self.media_loaded = True
         
-        # メディアの長さが取得できるまで少し待つ
-        # これにより、UIのタイムラインなどを正しく初期化できる
-        time.sleep(0.2) 
+        print(f"Media list loaded. Total duration: {self._total_duration / 1000.0:.2f}s")
 
-        print(f"Media loaded: {file_paths[0]}, Duration: {self.get_length()} ms")
+    def get_current_video_path(self) -> str | None:
+        """現在再生中の動画ファイルのパスを返します。"""
+        if not self.media_loaded:
+            return None
+        
+        media = self.player.get_media()
+        if not media:
+            return None
+        
+        return media.get_mrl()
 
     def set_display_handle(self, handle: int):
         """
         動画を表示するUIコンポーネントのハンドルを設定します。
         設定後、一度再生・停止することで最初のフレームを描画させます。
-        
-        Args:
-            handle: ウィンドウハンドル (Tkinterのwinfo_id()で取得)。
         """
         if not handle or not self.media_loaded:
             return
 
         self.player.set_hwnd(handle)
-
-        # ★★★【今回の修正の核心部分】★★★
-        # 最初のフレームを描画させるための「キックスタート」処理。
-        # 再生状態でない場合、一度だけ再生→即時停止を行う。
-        # これにより、UIに静止した最初のフレームが表示される。
-        if self.player.is_playing() == 0:
-            self.player.play()
-            # play()の反映には少し時間がかかる場合があるため、ごく短い待機を入れる
+        
+        # 最初のフレームを描画させるための「キックスタート」
+        if self.list_player.get_state() != vlc.State.Playing:
+            self.list_player.play()
             time.sleep(0.1) 
-            self.player.pause()
+            self.list_player.pause()
 
     def play_pause(self):
-        """
-        動画の再生と一時停止を切り替えます。
-        """
+        """動画の再生と一時停止を切り替えます。"""
         if not self.media_loaded: return
         
-        if self.player.is_playing():
-            self.player.pause()
-        else:
-            self.player.play()
+        # MediaListPlayerのplay/pauseメソッドを呼び出す
+        self.list_player.pause()
 
     def set_time(self, time_ms: int):
         """
-        再生位置を指定された時間（ミリ秒）に設定（シーク）します。
+        プレイリスト全体の指定された総経過時間（ミリ秒）に再生位置を設定します。
         """
-        if self.player.is_seekable():
-            self.player.set_time(time_ms)
+        if not self.media_loaded or time_ms < 0 or time_ms > self._total_duration:
+            return
+
+        # 1. どの動画を再生すべきか (target_index) を特定
+        target_index = -1
+        for i, cumulative_time in enumerate(self._cumulative_durations):
+            if time_ms < cumulative_time:
+                target_index = i - 1
+                break
+        
+        if target_index == -1: return # 通常は発生しない
+
+        # 2. その動画内での再生時間 (time_in_media) を計算
+        time_offset = self._cumulative_durations[target_index]
+        time_in_media = time_ms - time_offset
+
+        # 3. MediaListPlayerで目的の動画に切り替え、シークを実行
+        self.list_player.play_item_at_index(target_index)
+        
+        # play_item_at_index の反映を少し待つ
+        time.sleep(0.1) 
+        
+        self.player.set_time(time_in_media)
+
+        # シーク後は一時停止状態になることが多いので、再生状態を維持
+        if self.list_player.is_playing() == 0:
+            self.list_player.pause() # pause()を呼ぶと再生/一時停止がトグルされる
     
     def set_rate(self, rate: float):
-        """
-        再生速度を設定します。
-        """
+        """再生速度を設定します。"""
         self.player.set_rate(rate)
 
     def get_time(self) -> int:
         """
-        現在の再生時間をミリ秒単位で取得します。
+        プレイリスト全体の現在の総再生時間をミリ秒単位で取得します。
         """
-        return self.player.get_time()
+        if not self.media_loaded:
+            return 0
+
+        # 現在再生中のメディアがリストの何番目かを取得
+        current_media = self.player.get_media()
+        if not current_media:
+            return 0
+        
+        try:
+            # Mediaオブジェクトから直接インデックスを取得するのは難しいため、
+            # MRL (パス) を比較してインデックスを特定する
+            current_path = current_media.get_mrl()
+            current_index = -1
+            for i, path in enumerate(self.video_files):
+                # vlc.Media.new()で生成されるMRLは 'file:///C:/...' のようになるため、それを考慮
+                if os.path.basename(path) in current_path: # ファイル名で比較
+                    current_index = i
+                    break
+            
+            if current_index == -1: return 0
+
+            # 前の動画までの合計時間 + 現在の動画での経過時間
+            time_offset = self._cumulative_durations[current_index]
+            current_media_time = self.player.get_time()
+            return time_offset + current_media_time
+        except Exception:
+            # まだメディア情報が取得できていない場合など
+            return 0
 
     def get_length(self) -> int:
         """
-        動画の総再生時間をミリ秒単位で取得します。
+        プレイリスト全体の総再生時間をミリ秒単位で取得します。
         """
-        return self.player.get_length()
+        return self._total_duration
         
     def is_playing(self) -> bool:
-        """
-        現在再生中かどうかを返します。
-        """
-        return self.player.is_playing()
+        """現在再生中かどうかを返します。"""
+        return self.list_player.is_playing()
 
     def release_player(self):
-        """
-        プレイヤーリソースを解放します。
-        """
-        if self.player:
-            if self.player.is_playing():
-                self.player.stop()
-            self.player.release()
-            self.player = None
-            print("VLC Player released.")
+        """プレイヤーリソースを解放します。"""
+        if self.list_player:
+            if self.list_player.is_playing():
+                self.list_player.stop()
+            self.list_player.release()
+            self.list_player = None
+            self.player = None # 内部のplayer参照もクリア
+            print("VLC List Player released.")

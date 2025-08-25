@@ -75,7 +75,7 @@ class MainWindow(tk.Tk):
             to=1000,
             orient=tk.HORIZONTAL,
             variable=self.timeline_var,
-            # command=self.viewmodel.on_timeline_seek # シーク処理は後で実装
+            command=self.viewmodel.on_timeline_changed
         )
         self.timeline.pack(fill=tk.X, pady=5)
 

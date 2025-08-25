@@ -430,3 +430,21 @@ class MainViewModel:
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save results.\nError: {e}")
             print(f"Error during save: {e}")
+
+    def on_timeline_changed(self, scale_value: str):
+        """
+        タイムラインスライダーがユーザーによって操作されたときに呼び出されます。
+        
+        Args:
+            scale_value: スライダーの現在値 (0.0 から 1000.0 の文字列)。
+        """
+        # Modelに動画の総長さを問い合わせる
+        total_duration_ms = self.video_model.get_length()
+        if total_duration_ms <= 0:
+            return
+
+        # スライダーの値 (0-1000) を、動画の総時間内のミリ秒に変換
+        target_time_ms = int((float(scale_value) / 1000.0) * total_duration_ms)
+        
+        # Modelにシークを指示
+        self.video_model.set_time(target_time_ms)
