@@ -121,5 +121,62 @@ class PresetModel:
         
         stamps.remove(stamp_to_delete)
         return True
+    
+    def move_stamp(self, preset_name: str, stamp_name: str, direction: int) -> int | None:
+        """
+        指定されたプリセット内でスタンプを一つ上下に移動させます。
+        移動後の新しいインデックスを返します。移動できない場合は None を返します。
+        """
+        if preset_name not in self.presets_data["presets"]:
+            return None
+            
+        stamps = self.presets_data["presets"][preset_name]
+        if stamp_name not in stamps:
+            return None
+
+        current_index = stamps.index(stamp_name)
+        new_index = current_index + direction
+        
+        # 移動先がリストの範囲外なら何もしない
+        if not (0 <= new_index < len(stamps)):
+            return None
+            
+        # 要素を移動
+        stamps.insert(new_index, stamps.pop(current_index))
+        
+        return new_index
+    
+    def save_preset_as(self, new_name: str, stamps: list[str]) -> bool:
+        """
+        現在のスタンプリストを新しい名前のプリセットとして保存します。
+        """
+        # 名前の衝突はViewModel側でチェック済みとする
+        self.presets_data["presets"][new_name] = stamps
+        return True
+
+    def rename_preset(self, old_name: str, new_name: str) -> bool:
+        """
+        既存のプリセットの名前を変更します。
+        """
+        if old_name not in self.presets_data["presets"]:
+            return False
+        
+        # popで既存のものを削除しつつ値を取得し、新しいキーで設定
+        self.presets_data["presets"][new_name] = self.presets_data["presets"].pop(old_name)
+        return True
+
+    def delete_preset(self, name_to_delete: str) -> bool:
+        """
+        指定されたプリセットを削除します。
+        """
+        if name_to_delete not in self.presets_data["presets"]:
+            return False
+        
+        # 最後のプリセットは削除させない (ViewModelで制御)
+        if len(self.presets_data["presets"]) <= 1:
+            return False
+
+        del self.presets_data["presets"][name_to_delete]
+        return True
 
     # TODO: 今後、プリセットの追加、名前変更、削除などのメソッドをここに追加していきます。

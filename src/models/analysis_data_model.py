@@ -71,6 +71,8 @@ class AnalysisDataModel:
         """
         return bool(self._procedure_data)
         
+    import pandas as pd
+
     def export_to_dataframe(self) -> pd.DataFrame:
         """
         記録されたデータをPandas DataFrameとしてエクスポートします。
@@ -78,7 +80,6 @@ class AnalysisDataModel:
         if not self._procedure_data:
             return pd.DataFrame()
 
-        # TODO: 移行時間の計算や合計行の追加など、
-        #       元のコードの save_results_and_show にあったデータ整形処理を実装します。
+        # データ整形処理はViewModelに移動したため、ここでは単純にDataFrameを返す
         df = pd.DataFrame(self._procedure_data)
         return df

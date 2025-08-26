@@ -44,6 +44,8 @@ class Application:
         # 4. ViewModelとViewを相互に接続
         #    ViewModelがViewを操作できるように、Viewへの参照を渡す
         self.viewmodel.set_view(self.view)
+
+        self.view.set_video_model(video_model)
         
         print("Application components assembled.")
 

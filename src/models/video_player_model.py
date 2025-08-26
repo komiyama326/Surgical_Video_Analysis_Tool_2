@@ -108,6 +108,10 @@ class VideoPlayerModel:
         """
         if not self.media_loaded or time_ms < 0 or time_ms > self._total_duration:
             return
+            
+        # ★★★【修正の核心】★★★
+        # シーク操作の前に、現在の再生状態を記憶しておく
+        was_playing = self.list_player.is_playing()
 
         # 1. どの動画を再生すべきか (target_index) を特定
         target_index = -1
@@ -116,7 +120,7 @@ class VideoPlayerModel:
                 target_index = i - 1
                 break
         
-        if target_index == -1: return # 通常は発生しない
+        if target_index == -1: return
 
         # 2. その動画内での再生時間 (time_in_media) を計算
         time_offset = self._cumulative_durations[target_index]
@@ -125,15 +129,18 @@ class VideoPlayerModel:
         # 3. MediaListPlayerで目的の動画に切り替え、シークを実行
         self.list_player.play_item_at_index(target_index)
         
-        # play_item_at_index の反映を少し待つ
         time.sleep(0.1) 
         
         self.player.set_time(time_in_media)
 
-        # シーク後は一時停止状態になることが多いので、再生状態を維持
-        if self.list_player.is_playing() == 0:
-            self.list_player.pause() # pause()を呼ぶと再生/一時停止がトグルされる
-    
+        # 4. 記憶しておいた再生状態に戻す
+        if was_playing:
+            # 再生中だった場合は、再生を再開
+            self.list_player.play()
+        else:
+            # 一時停止中だった場合は、一時停止を維持
+            self.list_player.pause()
+
     def set_rate(self, rate: float):
         """再生速度を設定します。"""
         self.player.set_rate(rate)
