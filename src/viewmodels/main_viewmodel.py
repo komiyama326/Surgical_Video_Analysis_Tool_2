@@ -348,12 +348,6 @@ class MainViewModel:
             # 次のセッションは要求しないのでフラグはFalseのまま
             self.on_window_closing()
 
-    def on_timeline_changed(self, scale_value: str):
-        total_duration_ms = self.video_model.get_length()
-        if total_duration_ms <= 0: return
-        target_time_ms = int((float(scale_value) / 1000.0) * total_duration_ms)
-        self.video_model.set_time(target_time_ms)
-
     def on_options_changed(self):
         if not self.view: return
         self.settings_model.set("memo_enabled", self.view.memo_enabled_var.get())
@@ -368,12 +362,13 @@ class MainViewModel:
     def _ui_update_loop(self):
         if not self.view or not self.video_model.media_loaded: return
         is_playing = self.video_model.is_playing()
-        self.view.play_pause_button.config(text=("Pause" if is_playing else "Play"))
+        self.view.play_pause_button.config(text=("Pause" if is_playing else "Play (P)"))
         current_time_sec = self.video_model.get_time() / 1000.0
         total_time_sec = self.video_model.get_length() / 1000.0
         self.view.time_display_var.set(f"{format_time(current_time_sec)} / {format_time(total_time_sec)}")
         if total_time_sec > 0:
-            self.view.timeline_var.set((current_time_sec / total_time_sec) * 1000)
+            if not self.view.is_slider_dragging:
+                self.view.timeline_var.set((current_time_sec / total_time_sec) * 1000)
         self._update_timer = self.view.after(50, self._ui_update_loop)
 
     def _update_summary(self):
@@ -415,4 +410,15 @@ class MainViewModel:
 
         print(f"Initial video files loaded: {file_paths}")
         self.update_ui_regularly()
+
+    def on_timeline_changed(self, scale_value: float):
+        """
+        タイムラインスライダーの値に基づいて動画をシークする。
+        """
+        total_duration_ms = self.video_model.get_length()
+        if total_duration_ms <= 0: return
+
+        target_time_ms = int((float(scale_value) / 1000.0) * total_duration_ms)
+        self.video_model.set_time(target_time_ms)
+
 

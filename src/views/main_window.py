@@ -29,6 +29,8 @@ class MainWindow(tk.Tk):
         self.bind_shortcuts()
         self.is_next_session_requested = False
 
+        self.is_slider_dragging = False # タイムラインをドラッグ中かどうかのフラグ
+
     def set_video_model(self, video_model):
         """VideoPlayerModelへの参照を設定します。"""
         self.video_model = video_model
@@ -92,11 +94,46 @@ class MainWindow(tk.Tk):
         style.configure("Black.TFrame", background="black")
         self.video_frame = ttk.Frame(video_panel, style="Black.TFrame")
         self.video_frame.pack(fill=tk.BOTH, expand=True)
+
         self.timeline_var = tk.DoubleVar()
-        self.timeline = ttk.Scale(video_panel, from_=0, to=1000, orient=tk.HORIZONTAL, variable=self.timeline_var, command=self.viewmodel.on_timeline_changed)
+        self.timeline = ttk.Scale(video_panel, from_=0, to=1000, orient=tk.HORIZONTAL,
+                                variable=self.timeline_var)
+
+        def update_timeline_on_event(event):
+            """イベントの位置情報から Scale の値を更新し、シークをトリガーする"""
+            # スライダーの全長(ピクセル)に対する、クリック位置の割合を計算
+            percentage = event.x / event.widget.winfo_width()
+            # 割合を scale の値 (0-1000) に変換
+            scale_value = percentage * 1000
+            # 値が範囲内に収まるように調整
+            scale_value = max(0, min(1000, scale_value))
+            
+            # variable を手動で更新
+            self.timeline_var.set(scale_value)
+            # ViewModel にシークを依頼
+            self.viewmodel.on_timeline_changed(scale_value)
+
+        def on_slider_press(event):
+            self.is_slider_dragging = True
+            update_timeline_on_event(event)
+
+        def on_slider_drag(event):
+            if self.is_slider_dragging:
+                update_timeline_on_event(event)
+
+        def on_slider_release(event):
+            self.is_slider_dragging = False
+            
+        # command は使わず、bind のみで全ての操作を管理
+        self.timeline.bind("<ButtonPress-1>", on_slider_press)
+        self.timeline.bind("<B1-Motion>", on_slider_drag) # ドラッグ中もシーク
+        self.timeline.bind("<ButtonRelease-1>", on_slider_release)
+
         self.timeline.pack(fill=tk.X, pady=(8, 4))
+
         self.time_display_var = tk.StringVar(value="--:--:-- / --:--:--")
         ttk.Label(video_panel, textvariable=self.time_display_var, anchor=tk.CENTER, font=font_caption).pack(fill=tk.X)
+
 
         # --- コントロールパネル ---
         footer_frame = ttk.Frame(control_panel)
@@ -130,7 +167,7 @@ class MainWindow(tk.Tk):
         playback_frame.pack(fill=tk.X)
         skip_backward_btn = ttk.Button(playback_frame, text="<< 10s", command=lambda: self.viewmodel.on_skip_time_clicked(-10000))
         skip_backward_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        self.play_pause_button = ttk.Button(playback_frame, text="Play", command=self.viewmodel.on_play_pause_clicked)
+        self.play_pause_button = ttk.Button(playback_frame, text="Play (P)", command=self.viewmodel.on_play_pause_clicked)
         self.play_pause_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=8)
         skip_forward_btn = ttk.Button(playback_frame, text="10s >>", command=lambda: self.viewmodel.on_skip_time_clicked(10000))
         skip_forward_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
