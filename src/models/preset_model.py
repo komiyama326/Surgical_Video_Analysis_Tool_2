@@ -30,6 +30,14 @@ class PresetModel:
         app_data_dir = os.path.dirname(settings_model.settings_file_path)
         return os.path.join(app_data_dir, 'procedure_presets.json')
 
+    def reload(self):
+        """ファイルからデータを再読み込みし、メモリ上のデータを上書きする。"""
+        self.presets_data = self.load()
+
+    def reload(self):
+        """ファイルからデータを再読み込みし、メモリ上のデータを上書きする。"""
+        self.presets_data = self.load() # loadはデータを返すだけ
+
     def load(self) -> dict:
         """
         プリセットファイルからプリセットを読み込みます。
@@ -92,67 +100,12 @@ class PresetModel:
         """
         return self.presets_data.get("presets", {}).get(preset_name, [])
 
-    def add_stamp(self, preset_name: str, new_stamp: str) -> bool:
+    def save_preset(self, name: str, stamps: list[str]):
         """
-        指定されたプリセットに新しいスタンプを追加します。
-        成功した場合は True を、スタンプが既に存在する場合は False を返します。
+        指定された名前のプリセットを、指定されたスタンプリストで
+        上書きまたは新規作成します。
         """
-        if preset_name not in self.presets_data["presets"]:
-            return False
-        
-        stamps = self.presets_data["presets"][preset_name]
-        if new_stamp in stamps:
-            return False # 既に存在するので追加しない
-            
-        stamps.append(new_stamp)
-        return True
-    
-    def delete_stamp(self, preset_name: str, stamp_to_delete: str) -> bool:
-        """
-        指定されたプリセットからスタンプを削除します。
-        成功した場合は True を、スタンプが存在しない場合は False を返します。
-        """
-        if preset_name not in self.presets_data["presets"]:
-            return False
-            
-        stamps = self.presets_data["presets"][preset_name]
-        if stamp_to_delete not in stamps:
-            return False # 存在しないので削除できない
-        
-        stamps.remove(stamp_to_delete)
-        return True
-    
-    def move_stamp(self, preset_name: str, stamp_name: str, direction: int) -> int | None:
-        """
-        指定されたプリセット内でスタンプを一つ上下に移動させます。
-        移動後の新しいインデックスを返します。移動できない場合は None を返します。
-        """
-        if preset_name not in self.presets_data["presets"]:
-            return None
-            
-        stamps = self.presets_data["presets"][preset_name]
-        if stamp_name not in stamps:
-            return None
-
-        current_index = stamps.index(stamp_name)
-        new_index = current_index + direction
-        
-        # 移動先がリストの範囲外なら何もしない
-        if not (0 <= new_index < len(stamps)):
-            return None
-            
-        # 要素を移動
-        stamps.insert(new_index, stamps.pop(current_index))
-        
-        return new_index
-    
-    def save_preset_as(self, new_name: str, stamps: list[str]) -> bool:
-        """
-        現在のスタンプリストを新しい名前のプリセットとして保存します。
-        """
-        # 名前の衝突はViewModel側でチェック済みとする
-        self.presets_data["presets"][new_name] = stamps
-        return True
+        self.presets_data["presets"][name] = stamps
 
     def rename_preset(self, old_name: str, new_name: str) -> bool:
         """

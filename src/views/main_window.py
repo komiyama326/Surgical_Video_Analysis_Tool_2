@@ -110,11 +110,33 @@ class MainWindow(tk.Tk):
         ttk.Button(preset_btn_frame, text="▲ Up", command=lambda: self.viewmodel.on_move_stamp_clicked(-1)).pack(side=tk.LEFT, expand=True, fill=tk.X)
         ttk.Button(preset_btn_frame, text="▼ Down", command=lambda: self.viewmodel.on_move_stamp_clicked(1)).pack(side=tk.LEFT, expand=True, fill=tk.X)
 
+        # プリセット自体を管理するボタン用のフレーム
         preset_manage_frame = ttk.Frame(preset_frame)
         preset_manage_frame.pack(fill=tk.X, pady=(5, 0))
-        ttk.Button(preset_manage_frame, text="Save Preset As...", command=self.viewmodel.on_save_preset_as_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X)
-        ttk.Button(preset_manage_frame, text="Rename Preset", command=self.viewmodel.on_rename_preset_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X)
-        ttk.Button(preset_manage_frame, text="Delete Preset", command=self.viewmodel.on_delete_preset_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        save_btn = ttk.Button(
+            preset_manage_frame, text="Save Preset",
+            command=self.viewmodel.on_save_preset_clicked
+        )
+        save_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        save_as_btn = ttk.Button(
+            preset_manage_frame, text="Save As...",
+            command=self.viewmodel.on_save_preset_as_clicked
+        )
+        save_as_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        rename_btn = ttk.Button(
+            preset_manage_frame, text="Rename Preset",
+            command=self.viewmodel.on_rename_preset_clicked
+        )
+        rename_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+        delete_btn = ttk.Button(
+            preset_manage_frame, text="Delete Preset",
+            command=self.viewmodel.on_delete_preset_clicked
+        )
+        delete_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
         stamp_frame = ttk.LabelFrame(control_panel, text="Procedure Stamps", padding=5)
         stamp_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
