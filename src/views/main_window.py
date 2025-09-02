@@ -26,6 +26,7 @@ class MainWindow(tk.Tk):
         self.after_idle(self.attributes, '-topmost', False)
 
         self.bind_shortcuts()
+        self.is_next_session_requested = False
 
     def set_video_model(self, video_model):
         """VideoPlayerModelへの参照を設定します。"""
@@ -166,9 +167,24 @@ class MainWindow(tk.Tk):
         self.undo_button = ttk.Button(button_frame, text="Undo (U)", state=tk.DISABLED, command=self.viewmodel.on_undo_clicked)
         self.undo_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
+        # 終了・保存ボタン用のフレーム
         finish_frame = ttk.Frame(control_panel)
         finish_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
-        ttk.Button(finish_frame, text="Finish & Save Results", command=self.viewmodel.on_finish_and_save_clicked).pack(expand=True, fill=tk.X)
+
+        finish_and_next_button = ttk.Button(
+            finish_frame,
+            text="Finish & Next Video",
+            command=self.viewmodel.on_finish_and_next_clicked
+        )
+        finish_and_next_button.pack(expand=True, fill=tk.X, pady=(0, 5))
+
+        finish_button = ttk.Button(
+            finish_frame,
+            text="Finish & Save Results",
+            command=self.viewmodel.on_finish_and_save_clicked
+        )
+        finish_button.pack(expand=True, fill=tk.X) 
+
 
     def bind_shortcuts(self):
         """キーボードショートカットを有効化します。"""

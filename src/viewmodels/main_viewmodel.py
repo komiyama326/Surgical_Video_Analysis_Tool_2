@@ -361,3 +361,35 @@ class MainViewModel:
     def _update_undo_button_state(self):
         if not self.view: return
         self.view.undo_button.config(state=(tk.NORMAL if self.analysis_model.has_data() else tk.DISABLED))
+
+    def on_finish_and_next_clicked(self):
+        """
+        「Finish & Next Video」ボタンがクリックされたときの処理。
+        """
+        # データを保存する (データがない場合は何もしない)
+        if self.analysis_model.has_data():
+            self.on_finish_and_save_clicked()
+        
+        # Viewに次のセッションを要求するフラグを立てさせる
+        if self.view:
+            self.view.is_next_session_requested = True
+        
+        # 現在のウィンドウを閉じる
+        self.on_window_closing()
+
+    def load_videos(self, file_paths: list[str]):
+        """
+        指定された動画ファイルを読み込んで表示する。
+        """
+        if not file_paths: return
+            
+        self.video_model.set_video_files(file_paths)
+        
+        if self.view:
+            handle = self.view.get_video_frame_handle()
+            self.video_model.set_display_handle(handle)
+
+        print(f"Initial video files loaded: {file_paths}")
+        self.update_ui_regularly()
+
+        

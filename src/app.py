@@ -15,9 +15,12 @@ class Application:
     アプリケーション全体を管理するクラスです。
     MVVMの各コンポーネントを初期化し、結合します。
     """
-    def __init__(self):
+    def __init__(self, video_paths: list[str]):
         """
         アプリケーションの初期化を行います。
+        """
+        self.initial_video_paths = video_paths # 受け取ったパスを保持
+        """
         MVVMの各コンポーネントをインスタンス化し、接続します。
         """
         # 1. Model層のインスタンス化
@@ -47,6 +50,9 @@ class Application:
 
         self.view.set_video_model(video_model)
         
+        # 起動と同時に動画を読み込む
+        self.viewmodel.load_videos(self.initial_video_paths)
+        
         print("Application components assembled.")
 
     def run(self):
@@ -58,3 +64,7 @@ class Application:
         
         # Viewにメインループの開始を指示
         self.view.start_main_loop()
+        # ウィンドウが閉じた後、次のセッションが要求されているかチェック
+        if self.view.is_next_session_requested:
+            return True # 次のセッションへ
+        return False # アプリケーション終了
