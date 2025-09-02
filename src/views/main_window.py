@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import sys
+from ..utils import helpers
 
 class MainWindow(tk.Tk):
     """
@@ -38,111 +39,131 @@ class MainWindow(tk.Tk):
         """
         UIウィジェットを作成し、ウィンドウに配置します。
         """
-        main_frame = ttk.Frame(self, padding=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        video_panel = ttk.Frame(main_frame)
-        video_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        ttk.Separator(main_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y)
-        control_panel = ttk.Frame(main_frame, width=350)
-        control_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
-        control_panel.pack_propagate(False)
-
+        # --- スタイル定義 (デザインガイドラインの適用) ---
         style = ttk.Style(self)
+        
+        # OSのテーマをベースにする (Windows: "vista", macOS: "aqua", Linux: "clam")
+        # これにより、OSネイティブのウィジェット感を維持できる
+        style.theme_use('vista' if sys.platform == 'win32' else 'clam')
+
+        # フォント定義
+        font_body = ("Segoe UI", 10)
+        font_caption = ("Segoe UI", 9)
+        font_section_title = ("Segoe UI", 11, "bold") # 少し小さくしてバランス調整
+
+        # カラー定義
+        COLOR_BG = "#ECECEC"
+        COLOR_TEXT_PRIMARY = "#1D1D1F"
+        COLOR_TEXT_SECONDARY = "#6E6E73"
+        COLOR_ACCENT = "#007AFF"
+        COLOR_ACCENT_TEXT = "#FFFFFF"
+
+        # ウィンドウ全体の背景色
+        self.configure(background=COLOR_BG)
+
+        # --- スタイルの設定 ---
+        style.configure("TFrame", background=COLOR_BG)
+        style.configure("TLabel", background=COLOR_BG, foreground=COLOR_TEXT_PRIMARY, font=font_body)
+        style.configure("TButton", font=font_body, padding=(10, 6))
+        style.configure("TCheckbutton", background=COLOR_BG, font=font_body)
+        
+        style.configure("TLabelframe", background=COLOR_BG, borderwidth=1)
+        style.configure("TLabelframe.Label", background=COLOR_BG, foreground=COLOR_TEXT_SECONDARY, font=font_section_title)
+        
+        style.configure("Treeview", rowheight=28, font=font_body, fieldbackground=style.lookup("TFrame", "background"))
+        style.configure("Treeview.Heading", font=(font_body[0], font_body[1], "bold")) # 見出しを太字に
+        style.map("Treeview", background=[("selected", COLOR_ACCENT)], foreground=[("selected", COLOR_ACCENT_TEXT)])
+        
+        # 主要アクション用のカスタムスタイル
+        style.configure("Accent.TButton", background=COLOR_ACCENT, foreground=COLOR_ACCENT_TEXT)
+        style.map("Accent.TButton", background=[("active", "#0056b3")]) # ホバー時の色
+
+        # --- メインレイアウト ---
+        main_frame = ttk.Frame(self, padding=12)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        paned_window = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        paned_window.pack(fill=tk.BOTH, expand=True)
+        video_panel = ttk.Frame(paned_window, padding=(0, 0, 12, 0))
+        paned_window.add(video_panel, weight=3)
+        control_panel = ttk.Frame(paned_window, padding=(12, 0, 0, 0))
+        paned_window.add(control_panel, weight=1)
+
+        # --- 動画表示エリア ---
         style.configure("Black.TFrame", background="black")
         self.video_frame = ttk.Frame(video_panel, style="Black.TFrame")
         self.video_frame.pack(fill=tk.BOTH, expand=True)
-
         self.timeline_var = tk.DoubleVar()
-        self.timeline = ttk.Scale(video_panel, from_=0, to=1000, orient=tk.HORIZONTAL,
-                                  variable=self.timeline_var, command=self.viewmodel.on_timeline_changed)
-        self.timeline.pack(fill=tk.X, pady=5)
-
+        self.timeline = ttk.Scale(video_panel, from_=0, to=1000, orient=tk.HORIZONTAL, variable=self.timeline_var, command=self.viewmodel.on_timeline_changed)
+        self.timeline.pack(fill=tk.X, pady=(8, 4))
         self.time_display_var = tk.StringVar(value="--:--:-- / --:--:--")
-        ttk.Label(video_panel, textvariable=self.time_display_var, anchor=tk.CENTER).pack(fill=tk.X)
+        ttk.Label(video_panel, textvariable=self.time_display_var, anchor=tk.CENTER, font=font_caption).pack(fill=tk.X)
 
-        file_frame = ttk.Frame(control_panel)
-        file_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 10))
+        # --- コントロールパネル ---
+        footer_frame = ttk.Frame(control_panel)
+        footer_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(12, 0))
+        self.finish_and_next_button = ttk.Button(footer_frame, text="Save & Next", command=self.viewmodel.on_finish_and_next_clicked)
+        self.finish_and_next_button.pack(side=tk.LEFT, expand=True, fill=tk.X, ipady=4, padx=(0, 4))
+        self.finish_button = ttk.Button(footer_frame, text="Save & Finish", command=self.viewmodel.on_finish_and_save_clicked)
+        self.finish_button.pack(side=tk.LEFT, expand=True, fill=tk.X, ipady=4, padx=(4, 0))
+        
+        scroll_area_frame = ttk.Frame(control_panel)
+        scroll_area_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        canvas = tk.Canvas(scroll_area_frame, highlightthickness=0, background=COLOR_BG)
+        scrollbar = ttk.Scrollbar(scroll_area_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill="y")
+    
+        # --- スクロール可能なフレーム内のウィジェット ---
+        file_frame = ttk.Frame(scrollable_frame)
+        file_frame.pack(side=tk.TOP, fill=tk.X)
         self.open_video_button = ttk.Button(file_frame, text="Open Video File(s)", command=self.viewmodel.on_open_video_clicked)
-        self.open_video_button.pack(expand=True, fill=tk.X)
+        self.open_video_button.pack(expand=True, fill=tk.X, ipady=4)
 
-        playback_frame = ttk.Frame(control_panel)
-        playback_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
+        main_controls_frame = ttk.Frame(scrollable_frame)
+        main_controls_frame.pack(side=tk.TOP, fill=tk.X, pady=(24, 0))
+
+        playback_frame = ttk.LabelFrame(main_controls_frame, text="Playback")
+        playback_frame.pack(fill=tk.X)
         skip_backward_btn = ttk.Button(playback_frame, text="<< 10s", command=lambda: self.viewmodel.on_skip_time_clicked(-10000))
         skip_backward_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        # 修正後
-        self.play_pause_button = ttk.Button(
-            playback_frame,
-            text="Play",
-            command=self.viewmodel.on_play_pause_clicked
-        )
-        self.play_pause_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
+        self.play_pause_button = ttk.Button(playback_frame, text="Play", command=self.viewmodel.on_play_pause_clicked)
+        self.play_pause_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=8)
         skip_forward_btn = ttk.Button(playback_frame, text="10s >>", command=lambda: self.viewmodel.on_skip_time_clicked(10000))
         skip_forward_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
-        speed_frame = ttk.LabelFrame(control_panel, text="Playback Speed", padding=5)
-        speed_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+        speed_frame = ttk.LabelFrame(main_controls_frame, text="Playback Speed")
+        speed_frame.pack(fill=tk.X, pady=(12, 0))
         self.speed_buttons = {}
         for speed in [0.5, 1.0, 2.0]:
             btn = ttk.Button(speed_frame, text=f"{speed}x", command=lambda s=speed: self.viewmodel.on_set_speed_clicked(s))
-            btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
+            btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
             self.speed_buttons[speed] = btn
 
-        options_frame = ttk.LabelFrame(control_panel, text="Options", padding=5)
-        options_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
-        self.memo_enabled_var = tk.BooleanVar()
-        ttk.Checkbutton(options_frame, text="Enable Memo on 'End'", variable=self.memo_enabled_var,
-                        command=self.viewmodel.on_options_changed).pack(anchor=tk.W)
-        self.graph_enabled_var = tk.BooleanVar()
-        ttk.Checkbutton(options_frame, text="Generate Graph on 'Finish'", variable=self.graph_enabled_var,
-                        command=self.viewmodel.on_options_changed).pack(anchor=tk.W)
-
-        preset_frame = ttk.LabelFrame(control_panel, text="Preset Manager", padding=5)
-        preset_frame.pack(side=tk.TOP, fill=tk.X, pady=10)
-        self.preset_combo_var = tk.StringVar()
-        self.preset_combo = ttk.Combobox(preset_frame, textvariable=self.preset_combo_var, state="readonly")
-        self.preset_combo.pack(fill=tk.X, pady=(0, 5))
-        self.preset_combo.bind("<<ComboboxSelected>>", self.viewmodel.on_preset_selected)
-
-        preset_btn_frame = ttk.Frame(preset_frame)
-        preset_btn_frame.pack(fill=tk.X)
-        ttk.Button(preset_btn_frame, text="Add Stamp", command=self.viewmodel.on_add_stamp_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X)
-        ttk.Button(preset_btn_frame, text="Delete Stamp", command=self.viewmodel.on_delete_stamp_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X)
-        ttk.Button(preset_btn_frame, text="▲ Up", command=lambda: self.viewmodel.on_move_stamp_clicked(-1)).pack(side=tk.LEFT, expand=True, fill=tk.X)
-        ttk.Button(preset_btn_frame, text="▼ Down", command=lambda: self.viewmodel.on_move_stamp_clicked(1)).pack(side=tk.LEFT, expand=True, fill=tk.X)
-
-        # プリセット自体を管理するボタン用のフレーム
-        preset_manage_frame = ttk.Frame(preset_frame)
-        preset_manage_frame.pack(fill=tk.X, pady=(5, 0))
-
-        save_btn = ttk.Button(
-            preset_manage_frame, text="Save Preset",
-            command=self.viewmodel.on_save_preset_clicked
-        )
-        save_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-
-        save_as_btn = ttk.Button(
-            preset_manage_frame, text="Save As...",
-            command=self.viewmodel.on_save_preset_as_clicked
-        )
-        save_as_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-
-        rename_btn = ttk.Button(
-            preset_manage_frame, text="Rename Preset",
-            command=self.viewmodel.on_rename_preset_clicked
-        )
-        rename_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-
-        delete_btn = ttk.Button(
-            preset_manage_frame, text="Delete Preset",
-            command=self.viewmodel.on_delete_preset_clicked
-        )
-        delete_btn.pack(side=tk.LEFT, expand=True, fill=tk.X)
-
-        stamp_frame = ttk.LabelFrame(control_panel, text="Procedure Stamps", padding=5)
-        stamp_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=10)
+        status_frame = ttk.LabelFrame(main_controls_frame, text="Status & Recording")
+        status_frame.pack(fill=tk.X, pady=(12, 0))
+        self.summary_count_var = tk.StringVar(value="Logged Procedures: 0")
+        ttk.Label(status_frame, textvariable=self.summary_count_var).pack(anchor=tk.W, pady=2)
+        self.summary_duration_var = tk.StringVar(value="Total Duration: 0.00s")
+        ttk.Label(status_frame, textvariable=self.summary_duration_var, font=font_caption).pack(anchor=tk.W, pady=(0, 8))
+        self.selected_var = tk.StringVar(value="Selected: ---")
+        ttk.Label(status_frame, textvariable=self.selected_var).pack(anchor=tk.W, pady=(8, 0))
+        button_frame = ttk.Frame(status_frame)
+        button_frame.pack(fill=tk.X, pady=8)
+        self.start_button = ttk.Button(button_frame, text="Start (S)", state=tk.DISABLED, command=self.viewmodel.on_start_clicked)
+        self.start_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0,4))
+        self.end_button = ttk.Button(button_frame, text="End (E)", state=tk.DISABLED, command=self.viewmodel.on_end_clicked)
+        self.end_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        self.undo_button = ttk.Button(button_frame, text="Undo (U)", state=tk.DISABLED, command=self.viewmodel.on_undo_clicked)
+        self.undo_button.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(4,0))
+        
+        stamp_frame = ttk.LabelFrame(scrollable_frame, text="Procedure Stamps")
+        stamp_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(24, 0))
         self.stamp_tree = ttk.Treeview(stamp_frame, columns=("procedure"), show="headings", selectmode="browse")
-        self.stamp_tree.heading("procedure", text="手順名")
+        self.stamp_tree.heading("procedure", text="Procedure")
         self.stamp_tree.column("procedure", width=250)
         v_scroll = ttk.Scrollbar(stamp_frame, orient=tk.VERTICAL, command=self.stamp_tree.yview)
         self.stamp_tree.configure(yscrollcommand=v_scroll.set)
@@ -150,41 +171,77 @@ class MainWindow(tk.Tk):
         self.stamp_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        status_frame = ttk.LabelFrame(control_panel, text="Status & Recording", padding=5)
-        status_frame.pack(side=tk.TOP, fill=tk.X, pady=(10, 0))
-        self.summary_count_var = tk.StringVar(value="Logged Procedures: 0")
-        ttk.Label(status_frame, textvariable=self.summary_count_var).pack(anchor=tk.W)
-        self.summary_duration_var = tk.StringVar(value="Total Duration: 0.00s")
-        ttk.Label(status_frame, textvariable=self.summary_duration_var).pack(anchor=tk.W, pady=(0, 5))
-        self.selected_var = tk.StringVar(value="Selected: ---")
-        ttk.Label(status_frame, textvariable=self.selected_var).pack(anchor=tk.W, pady=(5, 0))
-        button_frame = ttk.Frame(status_frame)
-        button_frame.pack(fill=tk.X, pady=5)
-        self.start_button = ttk.Button(button_frame, text="Start (S)", state=tk.DISABLED, command=self.viewmodel.on_start_clicked)
-        self.start_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        self.end_button = ttk.Button(button_frame, text="End (E)", state=tk.DISABLED, command=self.viewmodel.on_end_clicked)
-        self.end_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        self.undo_button = ttk.Button(button_frame, text="Undo (U)", state=tk.DISABLED, command=self.viewmodel.on_undo_clicked)
-        self.undo_button.pack(side=tk.LEFT, expand=True, fill=tk.X)
+        settings_frame = ttk.Frame(scrollable_frame)
+        settings_frame.pack(side=tk.TOP, fill=tk.X, pady=(24, 0))
+        preset_frame = ttk.LabelFrame(settings_frame, text="Preset Manager")
+        preset_frame.pack(fill=tk.X)
+        self.preset_combo_var = tk.StringVar()
+        self.preset_combo = ttk.Combobox(preset_frame, textvariable=self.preset_combo_var, state="readonly", font=font_body)
+        self.preset_combo.pack(fill=tk.X, pady=4)
+        self.preset_combo.bind("<<ComboboxSelected>>", self.viewmodel.on_preset_selected)
+        preset_btn_frame = ttk.Frame(preset_frame)
+        preset_btn_frame.pack(fill=tk.X, pady=4)
+        ttk.Button(preset_btn_frame, text="Add Stamp", command=self.viewmodel.on_add_stamp_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0,4))
+        ttk.Button(preset_btn_frame, text="Delete Stamp", command=self.viewmodel.on_delete_stamp_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        ttk.Button(preset_btn_frame, text="▲ Up", command=lambda: self.viewmodel.on_move_stamp_clicked(-1)).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        ttk.Button(preset_btn_frame, text="▼ Down", command=lambda: self.viewmodel.on_move_stamp_clicked(1)).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(4,0))
+        preset_manage_frame = ttk.Frame(preset_frame)
+        preset_manage_frame.pack(fill=tk.X, pady=(4,0))
+        ttk.Button(preset_manage_frame, text="Save Preset", command=self.viewmodel.on_save_preset_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0,4))
+        ttk.Button(preset_manage_frame, text="Save As...", command=self.viewmodel.on_save_preset_as_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        ttk.Button(preset_manage_frame, text="Rename Preset", command=self.viewmodel.on_rename_preset_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=4)
+        ttk.Button(preset_manage_frame, text="Delete Preset", command=self.viewmodel.on_delete_preset_clicked).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(4,0))
 
-        # 終了・保存ボタン用のフレーム
-        finish_frame = ttk.Frame(control_panel)
-        finish_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+        options_frame = ttk.LabelFrame(settings_frame, text="Options")
+        options_frame.pack(fill=tk.X, pady=(12, 0))
+        self.memo_enabled_var = tk.BooleanVar()
+        ttk.Checkbutton(options_frame, text="Enable Memo on 'End'", variable=self.memo_enabled_var,
+                        command=self.viewmodel.on_options_changed).pack(anchor=tk.W, pady=4)
+        self.graph_enabled_var = tk.BooleanVar()
+        ttk.Checkbutton(options_frame, text="Generate Graph on 'Finish'", variable=self.graph_enabled_var,
+                        command=self.viewmodel.on_options_changed).pack(anchor=tk.W, pady=4)
 
-        finish_and_next_button = ttk.Button(
-            finish_frame,
-            text="Finish & Next Video",
-            command=self.viewmodel.on_finish_and_next_clicked
-        )
-        finish_and_next_button.pack(expand=True, fill=tk.X, pady=(0, 5))
+        # マウスホイールでのスクロールを有効化
+        def _on_mousewheel(event):
+            # Windows/macOS/Linuxでイベントのdelta値が異なるため、それを吸収する
+            # event.deltaはWindows, event.numはLinux
+            if hasattr(event, 'delta') and event.delta != 0:
+                delta = -1 * (event.delta // 120)
+            elif hasattr(event, 'num') and event.num in (4, 5):
+                delta = 1 if event.num == 5 else -1
+            else:
+                return # 不明なイベントは無視
 
-        finish_button = ttk.Button(
-            finish_frame,
-            text="Finish & Save Results",
-            command=self.viewmodel.on_finish_and_save_clicked
-        )
-        finish_button.pack(expand=True, fill=tk.X) 
+            canvas.yview_scroll(delta, "units")
 
+        # ★★★【今回の修正の核心】★★★
+        def _on_treeview_scroll_enter(event):
+            """Treeviewに入ったら、Canvasのホイールバインドを解除"""
+            canvas.unbind("<MouseWheel>")
+            for child in scrollable_frame.winfo_children():
+                def unbind_recursive(widget):
+                    widget.unbind("<MouseWheel>")
+                    for sub_child in widget.winfo_children():
+                        unbind_recursive(sub_child)
+                unbind_recursive(child)
+
+        def _on_treeview_scroll_leave(event):
+            """Treeviewから出たら、Canvasのホイールバインドを再設定"""
+            canvas.bind("<MouseWheel>", _on_mousewheel)
+            for child in scrollable_frame.winfo_children():
+                def bind_recursive(widget):
+                    widget.bind("<MouseWheel>", _on_mousewheel)
+                    for sub_child in widget.winfo_children():
+                        bind_recursive(sub_child)
+                bind_recursive(child)
+
+        # Treeview自体とその親フレームにEnter/Leaveイベントを設定
+        # これにより、Treeviewの領域(スクロールバー含む)で判定
+        stamp_frame.bind("<Enter>", _on_treeview_scroll_enter)
+        stamp_frame.bind("<Leave>", _on_treeview_scroll_leave)
+
+        # 最初のアプローチに戻り、Canvasエリア全体にバインドを設定
+        _on_treeview_scroll_leave(None) # 初期状態でバインドを有効化
 
     def bind_shortcuts(self):
         """キーボードショートカットを有効化します。"""

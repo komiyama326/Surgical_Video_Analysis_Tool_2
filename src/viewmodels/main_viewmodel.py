@@ -6,6 +6,7 @@ from ..utils import helpers
 import pandas as pd
 from ..utils.helpers import format_time
 from tkinter import filedialog
+from ..views.add_stamp_dialog import AddStampDialog
 
 class MainViewModel:
     """
@@ -51,7 +52,11 @@ class MainViewModel:
         stamps = self.preset_model.get_stamps(self.current_preset_name)
         
         if self.view:
-            self.view.update_stamp_list_and_select(stamps)
+            # スタンプリストを更新し、最初の項目を選択
+            self.view.update_stamp_list_and_select(stamps, select_index=0)
+            # 選択イベントを手動で呼び出して、"Selected: ..." ラベルなどを更新
+            self.on_stamp_select()
+
             preset_names = self.preset_model.get_preset_names()
             self.view.update_preset_combo(preset_names, self.current_preset_name)
             self.view.speed_buttons[1.0].config(state=tk.DISABLED)
@@ -59,6 +64,7 @@ class MainViewModel:
             self.view.memo_enabled_var.set(memo_enabled)
             graph_enabled = self.settings_model.get("graph_enabled", True)
             self.view.graph_enabled_var.set(graph_enabled)
+            
         print(f"Loaded preset '{self.current_preset_name}' with {len(stamps)} stamps.")
 
     def _mark_preset_as_modified(self):
@@ -70,18 +76,31 @@ class MainViewModel:
     # --- プリセットのスタンプ変更 (メモリ上のModelデータを直接変更) ---
     
     def on_add_stamp_clicked(self):
-        self.view.unbind_shortcuts()
-        new_stamp_name = simpledialog.askstring("Add Stamp", "Enter new stamp name:", parent=self.view)
-        self.view.bind_shortcuts()
-        if not new_stamp_name: return
+        """「Add Stamp」ボタン: カスタムダイアログを開き、スタンプを追加する"""
+        if not self.view: return
+
+        # 1. Modelから、全プリセットのユニークなスタンプ名リストを取得
+        all_stamps = self.preset_model.get_all_unique_stamps()
         
-        stamps = self.preset_model.get_stamps(self.current_preset_name)
-        if new_stamp_name in stamps:
-            messagebox.showwarning("Add Failed", f"'{new_stamp_name}' already exists.", parent=self.view)
-        else:
-            stamps.append(new_stamp_name)
-            self.view.update_stamp_list_and_select(stamps, -1)
-            self._mark_preset_as_modified()
+        # 2. カスタムダイアログを開く
+        self.view.unbind_shortcuts()
+        dialog = AddStampDialog(self.view, all_stamps)
+        self.view.bind_shortcuts()
+        
+        # 3. ダイアログの結果を取得
+        new_stamp_name = dialog.result
+
+        if new_stamp_name:
+            stamps = self.preset_model.get_stamps(self.current_preset_name)
+            if new_stamp_name in stamps:
+                messagebox.showwarning("Add Failed", f"'{new_stamp_name}' is already in the current preset.", parent=self.view)
+            else:
+                # Modelが持つメモリ上のリストに直接追加
+                stamps.append(new_stamp_name)
+                # Viewを更新
+                self.view.update_stamp_list_and_select(stamps, -1)
+                # 変更済みマークを付ける
+                self._mark_preset_as_modified()
 
     def on_delete_stamp_clicked(self):
         if not self.selected_stamp:
@@ -324,6 +343,11 @@ class MainViewModel:
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save results.\nError: {e}")
 
+        # 正常に保存されたら、ウィンドウを閉じる
+        if self.view:
+            # 次のセッションは要求しないのでフラグはFalseのまま
+            self.on_window_closing()
+
     def on_timeline_changed(self, scale_value: str):
         total_duration_ms = self.video_model.get_length()
         if total_duration_ms <= 0: return
@@ -392,4 +416,3 @@ class MainViewModel:
         print(f"Initial video files loaded: {file_paths}")
         self.update_ui_regularly()
 
-        

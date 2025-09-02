@@ -9,19 +9,34 @@ from src.app import Application
 
 def select_video_files() -> list[str]:
     """
-    動画ファイル選択ダイアログを表示し、選択されたファイルのパスリストを返す。
-    何も選択されなければ空のリストを返す。
+    動画ファイル選択ダイアログを画面の中央に表示し、
+    選択されたファイルのパスリストを返す。
     """
-    # メインウィンドウを裏で作成して、ダイアログの親にする
     root = tk.Tk()
-    root.withdraw() # ウィンドウは表示しない
+    # まずウィンドウ自体を画面中央に移動させる準備
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f'{width}x{height}+{x}+{y}')
+    
+    # ウィンドウを非表示にする
+    root.withdraw()
+
+    # transient()でダイアログを親ウィンドウの上に表示する設定
+    # これにより、ダイアログが親ウィンドウの中央に表示されやすくなる
+    root.transient()
     
     file_paths = filedialog.askopenfilenames(
+        parent=root, # 親ウィンドウを明示的に指定
         title="Select Video File(s)",
         filetypes=(("Movie Files", "*.mp4 *.mov *.avi"), ("All files", "*.*"))
     )
     
-    root.destroy() # 裏で作ったウィンドウを破棄
+    # 念のためgrab_release()を呼んでおく
+    root.grab_release()
+    root.destroy()
     
     return list(file_paths)
 

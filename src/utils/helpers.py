@@ -24,6 +24,15 @@ def format_time(seconds: float) -> str:
     # f-stringを使って文字列をフォーマットします。
     return f"{hours:02d}:{mins:02d}:{secs:02d}"
 
+def get_ui_font() -> tuple[str, int]:
+    """OSに応じて最適なUIフォントのタプル (名前, サイズ) を返す。"""
+    if sys.platform == "win32":
+        return ("Yu Gothic UI", 10)
+    elif sys.platform == "darwin": # macOS
+        return (".SF NS Text", 12)
+    else: # Linuxなど
+        return ("DejaVu Sans", 10)
+
 def get_japanese_font() -> FontProperties | None:
     """
     環境に応じた日本語フォントのパスを取得します。

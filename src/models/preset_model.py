@@ -132,4 +132,14 @@ class PresetModel:
         del self.presets_data["presets"][name_to_delete]
         return True
 
+    def get_all_unique_stamps(self) -> list[str]:
+        """
+        すべてのプリセットに含まれる、重複のないスタンプ名をソートして返します。
+        """
+        all_stamps = set()
+        for preset_name in self.get_preset_names():
+            stamps = self.get_stamps(preset_name)
+            all_stamps.update(stamps)
+        return sorted(list(all_stamps))
+
     # TODO: 今後、プリセットの追加、名前変更、削除などのメソッドをここに追加していきます。
