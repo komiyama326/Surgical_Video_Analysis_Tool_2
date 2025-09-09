@@ -421,4 +421,32 @@ class MainViewModel:
         target_time_ms = int((float(scale_value) / 1000.0) * total_duration_ms)
         self.video_model.set_time(target_time_ms)
 
+    def on_view_shortcuts(self):
+        """「View Shortcuts」メニューがクリックされたときの処理。"""
+        shortcuts_text = """
+        Keyboard Shortcuts:
+        P : Play / Pause
+        S : Start Recording
+        E : End Recording
+        U : Undo Last Record
+        Left Arrow : Skip Backward 10s
+        Right Arrow : Skip Forward 10s
+        """
+        messagebox.showinfo(
+        "Keyboard Shortcuts",
+        shortcuts_text,
+        parent=self.view
+        )
 
+    def on_about(self):
+        """「About」メニューがクリックされたときの処理。"""
+        about_text = """
+        Surgical Video Analysis Tool 2
+        Version: 2.0 (Completed 2025)
+        This tool was developed with the assistance of an AI.
+        """
+        messagebox.showinfo(
+        "About This Application",
+        about_text,
+        parent=self.view
+        )

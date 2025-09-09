@@ -88,11 +88,16 @@ class VideoPlayerModel:
             return
 
         self.player.set_hwnd(handle)
+
+        # ★★★【今回の修正の核心】★★★
+        # 最初のフレームを描画させ、かつ確実に一時停止状態にする
+        self.list_player.play()
         
-        # 最初のフレームを描画させるための「キックスタート」
-        if self.list_player.get_state() != vlc.State.Playing:
-            self.list_player.play()
-            time.sleep(0.1) 
+        # play()の反映を少し待つ
+        time.sleep(0.1) 
+        
+        # 再生中であれば、pause()を呼び出す
+        if self.list_player.is_playing():
             self.list_player.pause()
 
     def play_pause(self):

@@ -20,6 +20,18 @@ class MainWindow(tk.Tk):
         self.geometry(initial_geometry)
         self.protocol("WM_DELETE_WINDOW", self.viewmodel.on_window_closing)
 
+        # --- メニューバーの作成 ---
+        self.menu_bar = tk.Menu(self)
+        self.config(menu=self.menu_bar)
+
+        # ヘルプメニューを作成
+        help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="Help", menu=help_menu)
+
+        help_menu.add_command(label="View Shortcuts", command=self.viewmodel.on_view_shortcuts)
+        help_menu.add_separator()
+        help_menu.add_command(label="About", command=self.viewmodel.on_about)
+
         self._create_widgets()
         
         self.lift()
